@@ -6,15 +6,25 @@ import (
 	"git.oriente.com/devops/dns-proxy/pb"
 	"git.oriente.com/devops/dns-proxy/resolv"
 	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
+	"runtime"
 
 	"google.golang.org/grpc"
-	"log"
 	"net"
 )
 
 type dnsServer struct{}
 
+func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU()*2 - 1)
+}
 func (d *dnsServer) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			logrus.Error("Query this panic ", err)
+		}
+	}()
+
 	m := new(dns.Msg)
 	if err := m.Unpack(in.Msg); err != nil {
 		return nil, fmt.Errorf("failed to unpack msg: %v", err)
@@ -22,17 +32,16 @@ func (d *dnsServer) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket,
 	r := new(dns.Msg)
 	r.SetReply(m)
 	r.Authoritative = true
-	for _, q := range r.Question {
-		log.Println(q.Name)
-		data, _ := resolv.Lookup(q.Qtype, q.Name)
-		r.Answer = data.Answer
-		log.Println(r.Answer)
+	data, err := resolv.DnsLookup(m)
+	if err != nil {
+		logrus.Error(err)
+		return nil, fmt.Errorf("failed to query: %v", err)
 	}
-
+	r.Answer = data.Answer
+	logrus.Info(r.Answer)
 	if len(r.Answer) == 0 {
 		r.Rcode = dns.RcodeNameError
 	}
-
 	out, err := r.Pack()
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack msg: %v", err)
@@ -43,9 +52,9 @@ func (d *dnsServer) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket,
 func main() {
 	lis, err := net.Listen("tcp", ":8053")
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		logrus.Error("failed to listen: %v", err)
 	}
-	log.Printf("[info] --> listen: 8053 start")
+	logrus.Info("listen: 8053 start")
 	grpcServer := grpc.NewServer()
 	pb.RegisterDnsServiceServer(grpcServer, &dnsServer{})
 	panic(grpcServer.Serve(lis))
