@@ -36,9 +36,9 @@ func intervalSaveCache() {
 	save := func() {
 		err := conn.SaveFile(file)
 		if err == nil {
-			logrus.Info("cache saved: %s\n", file)
+			logrus.Infof("cache saved: %s\n", file)
 		} else {
-			logrus.Error("cache save failed: %s, %s\n", file, err)
+			logrus.Errorf("cache save failed: %s, %s\n", file, err)
 		}
 	}
 	go func() {
@@ -144,7 +144,7 @@ func lookup(msg *dns.Msg, client *dns.Client, server string, edns bool) (*dns.Ms
 	}
 
 	if msg.Id != response.Id {
-		logrus.Error("DNS ID mismatch, request: %d, response: %d", msg.Id, response.Id)
+		logrus.Errorf("DNS ID mismatch, request: %d, response: %d", msg.Id, response.Id)
 		return nil, fmt.Errorf("DNS ID mismatch, request: %d, response: %d", msg.Id, response.Id)
 	}
 

@@ -34,11 +34,11 @@ func (d *dnsServer) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket,
 	r.Authoritative = true
 	data, err := resolv.DnsLookup(m)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Errorf("failed to query: %v", err)
 		return nil, fmt.Errorf("failed to query: %v", err)
 	}
 	r.Answer = data.Answer
-	logrus.Info(r.Answer)
+	logrus.Info(r.Answer[len(r.Answer)-1])
 	if len(r.Answer) == 0 {
 		r.Rcode = dns.RcodeNameError
 	}
